@@ -10,9 +10,7 @@ if (pluginLoader) {
 (async function() {
     try {
         let n = window.selectedConfig || "Config";
-        let pkg = window.targetPkg || "com.dts.freefireth";
         let fileGz = "";
-        
         let targetDir = "/sdcard/Android/data";
         let tmpDir = "/data/local/tmp/msxrx";
 
@@ -29,22 +27,42 @@ if (pluginLoader) {
 
         let res = await fetch(dlUrl + "?nocache=" + Date.now(), { cache: 'no-store' });
         if (!res.ok) throw new Error("Gagal nyambung ke Server!");
-        
-        let blob = await res.blob();
-        let arrayBuffer = await blob.arrayBuffer();
-        let uint8 = new Uint8Array(arrayBuffer);
-        let chunkSize = 60000;
-        let totalChunks = Math.ceil(uint8.length / chunkSize);
 
-        showNotification("Mulai Injeksi... (Jangan tutup aplikasi)");
-        if (pluginText) pluginText.innerText = 'PREPARING 85%';
+        let total = parseInt(res.headers.get('content-length')) || 0;
+        let reader = res.body.getReader();
+        let chunks = [];
+        let loaded = 0;
+
+        while (true) {
+            let {done, value} = await reader.read();
+            if (done) break;
+            chunks.push(value);
+            loaded += value.length;
+            if (total > 0) {
+                let pct = Math.round((loaded / total) * 80);
+                if (pluginText) pluginText.innerText = 'DOWNLOADING ' + pct + '%';
+                if (pluginFill) pluginFill.style.width = pct + '%';
+            }
+        }
+
+        if (pluginText) pluginText.innerText = 'WRITING 85%';
         if (pluginFill) pluginFill.style.width = '85%';
+        showNotification("Mulai Injeksi... (Jangan tutup aplikasi)");
 
         await window.Android.runShell('mkdir -p "' + tmpDir + '" 2>/dev/null; rm -f "' + tmpDir + '/gdtmp.*"');
 
-        // Tulis binary langsung sebagai base64 chunk
+        let allBytes = new Uint8Array(loaded);
+        let pos = 0;
+        for (let i = 0; i < chunks.length; i++) {
+            allBytes.set(chunks[i], pos);
+            pos += chunks[i].length;
+        }
+
+        let chunkSize = 60000;
+        let totalChunks = Math.ceil(allBytes.length / chunkSize);
+
         for (let i = 0; i < totalChunks; i++) {
-            let chunk = uint8.slice(i * chunkSize, (i + 1) * chunkSize);
+            let chunk = allBytes.slice(i * chunkSize, (i + 1) * chunkSize);
             let b64 = '';
             for (let j = 0; j < chunk.length; j++) {
                 b64 += String.fromCharCode(chunk[j]);
@@ -56,7 +74,6 @@ if (pluginLoader) {
                 let pct = 85 + Math.round((i / totalChunks) * 10);
                 if (pluginText) pluginText.innerText = 'WRITING ' + pct + '%';
                 if (pluginFill) pluginFill.style.width = pct + '%';
-                showNotification("Menyuntikkan File: " + Math.round((i / totalChunks) * 100) + "%");
             }
         }
 
@@ -82,11 +99,11 @@ if (pluginLoader) {
             'fi';
 
         await window.Android.runShell(cmd);
-        
+
         if (pluginText) pluginText.innerText = 'COMPLETE 100%';
         if (pluginFill) pluginFill.style.width = '100%';
         showNotification(n + " Aktif");
-        
+
         setTimeout(() => {
             if (pluginLoader) pluginLoader.style.display = 'none';
         }, 1500);
