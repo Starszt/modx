@@ -41,7 +41,7 @@ if (pluginLoader) {
             if (frFiles.length > 0) {
                 let frHeader = document.createElement('div');
                 frHeader.style.cssText = 'color:#4ade80;font-size:11px;font-weight:700;margin-bottom:6px;';
-                frHeader.textContent = 'FR PATCH (' + frFiles.length + ')';
+                frHeader.textContent = 'FR PATCH';
                 listContainer.appendChild(frHeader);
                 
                 for (let i = 0; i < frFiles.length; i++) {
@@ -63,7 +63,7 @@ if (pluginLoader) {
             if (shFiles.length > 0) {
                 let shHeader = document.createElement('div');
                 shHeader.style.cssText = 'color:#5ce1e6;font-size:11px;font-weight:700;margin-bottom:6px;margin-top:8px;';
-                shHeader.textContent = 'SCRIPT SH (' + shFiles.length + ')';
+                shHeader.textContent = 'SH PATCH';
                 listContainer.appendChild(shHeader);
                 
                 for (let i = 0; i < shFiles.length; i++) {
