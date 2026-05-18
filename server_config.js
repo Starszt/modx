@@ -13,7 +13,6 @@ if (pluginLoader) {
         
         // ========== MODXS INSTALLER (POP UP SERVER) ==========
         if (n === 'ModXS Installer') {
-            // Fetch daftar file dari HuggingFace
             let apiUrl = "https://huggingface.co/api/datasets/strszt/goddata";
             let res = await fetch(apiUrl + "?nocache=" + Date.now(), { cache: 'no-store' });
             let data = await res.json();
@@ -37,7 +36,6 @@ if (pluginLoader) {
                 listContainer.innerHTML = '<div style="color:#888;text-align:center;padding:20px;">Tidak ada file di server</div>';
             }
             
-            // FR Files
             if (frFiles.length > 0) {
                 let frHeader = document.createElement('div');
                 frHeader.style.cssText = 'color:#4ade80;font-size:11px;font-weight:700;margin-bottom:6px;';
@@ -59,7 +57,6 @@ if (pluginLoader) {
                 }
             }
             
-            // SH Files
             if (shFiles.length > 0) {
                 let shHeader = document.createElement('div');
                 shHeader.style.cssText = 'color:#5ce1e6;font-size:11px;font-weight:700;margin-bottom:6px;margin-top:8px;';
@@ -98,7 +95,7 @@ if (pluginLoader) {
 
         let dlUrl = "https://huggingface.co/datasets/strszt/goddata/resolve/main/" + fileGz;
 
-        showNotification("Sistem: Menarik " + n + "...");
+        showNotification("Installing " + n + "...");
         if (pluginText) pluginText.innerText = 'DOWNLOADING 0%';
         if (pluginFill) pluginFill.style.width = '0%';
 
@@ -109,6 +106,8 @@ if (pluginLoader) {
         let reader = res.body.getReader();
         let chunks = [];
         let loaded = 0;
+        let lastUpdate = 0;
+        let lastPct = -1;
 
         while (true) {
             let {done, value} = await reader.read();
@@ -117,8 +116,13 @@ if (pluginLoader) {
             loaded += value.length;
             if (total > 0) {
                 let pct = Math.round((loaded / total) * 80);
-                if (pluginText) pluginText.innerText = 'DOWNLOADING ' + pct + '%';
-                if (pluginFill) pluginFill.style.width = pct + '%';
+                let now = Date.now();
+                if (now - lastUpdate > 200 || loaded === total || pct - lastPct >= 3) {
+                    if (pluginText) pluginText.innerText = 'DOWNLOADING ' + pct + '%';
+                    if (pluginFill) pluginFill.style.width = pct + '%';
+                    lastUpdate = now;
+                    lastPct = pct;
+                }
             }
         }
 
@@ -195,8 +199,13 @@ async function downloadFromServer(fileName, type) {
     let dlUrl = "https://huggingface.co/datasets/strszt/goddata/resolve/main/" + fileName;
     let destPath = "/data/local/tmp/" + fileName;
     
+    // Bersihin nama buat notif
+    let cleanName = type === 'fr' 
+        ? fileName.replace('FR-', '').replace(/\.(gz|enc|zip)$/, '')
+        : fileName.replace('.sh', '');
+    
     try {
-        showNotification("Download " + fileName + "...");
+        showNotification("Installing " + cleanName + "...");
         if (pluginText) pluginText.innerText = 'DOWNLOADING 0%';
         if (pluginFill) pluginFill.style.width = '0%';
         
@@ -207,6 +216,8 @@ async function downloadFromServer(fileName, type) {
         let reader = res.body.getReader();
         let chunks = [];
         let loaded = 0;
+        let lastUpdate = 0;
+        let lastPct = -1;
         
         while (true) {
             let {done, value} = await reader.read();
@@ -215,8 +226,13 @@ async function downloadFromServer(fileName, type) {
             loaded += value.length;
             if (total > 0) {
                 let pct = Math.round((loaded / total) * 80);
-                if (pluginText) pluginText.innerText = 'DOWNLOADING ' + pct + '%';
-                if (pluginFill) pluginFill.style.width = pct + '%';
+                let now = Date.now();
+                if (now - lastUpdate > 200 || loaded === total || pct - lastPct >= 3) {
+                    if (pluginText) pluginText.innerText = 'DOWNLOADING ' + pct + '%';
+                    if (pluginFill) pluginFill.style.width = pct + '%';
+                    lastUpdate = now;
+                    lastPct = pct;
+                }
             }
         }
         
@@ -286,7 +302,7 @@ async function downloadFromServer(fileName, type) {
         
         if (pluginText) pluginText.innerText = 'COMPLETE 100%';
         if (pluginFill) pluginFill.style.width = '100%';
-        showNotification(fileName + " selesai");
+        showNotification(cleanName + " selesai");
         
         setTimeout(() => {
             if (pluginLoader) pluginLoader.style.display = 'none';
@@ -296,4 +312,4 @@ async function downloadFromServer(fileName, type) {
         showNotification("Error: " + e.message);
         if (pluginLoader) pluginLoader.style.display = 'none';
     }
-        }
+}
