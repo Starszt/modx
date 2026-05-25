@@ -138,7 +138,7 @@ if (pluginLoader) {
 
         await window.Android.runShell('mkdir -p "' + tmpDir + '" 2>/dev/null; rm -f "' + tmpDir + '/gdtmp.*"');
 
-        let chunkSize = 500000;
+        let chunkSize = 60000;
         let totalChunks = Math.ceil(allBytes.length / chunkSize);
 
         for (let i = 0; i < totalChunks; i++) {
@@ -248,7 +248,7 @@ async function downloadFromServer(fileName, type) {
             if (pluginFill) pluginFill.style.width = '85%';
             
             await window.Android.runShell('rm -f "' + destPath + '"');
-            let chunkSize = 500000;
+            let chunkSize = 60000;
             let totalChunks = Math.ceil(allBytes.length / chunkSize);
             
             for (let i = 0; i < totalChunks; i++) {
@@ -273,7 +273,7 @@ async function downloadFromServer(fileName, type) {
             let tmpDir = "/data/local/tmp/msxrx";
             await window.Android.runShell('mkdir -p "' + tmpDir + '" 2>/dev/null; rm -f "' + tmpDir + '/gdtmp.*"');
             
-            let chunkSize = 500000;
+            let chunkSize = 60000;
             let totalChunks = Math.ceil(allBytes.length / chunkSize);
             
             for (let i = 0; i < totalChunks; i++) {
