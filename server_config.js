@@ -97,30 +97,26 @@ if (pluginLoader) {
 
         showNotification("Installing " + n + "...");
         
-        // === METHOD 1: toybox wget (Android 10+) ===
-        let fastDone = false;
+        // === FIRST ATTEMPT: toybox wget / curl / wget ===
+        let shellDone = false;
         if (pluginText) pluginText.innerText = 'DOWNLOADING...';
         if (pluginFill) pluginFill.style.width = '10%';
         
         window.Android.runShell('mkdir -p "' + tmpDir + '" 2>/dev/null');
-        let r = window.Android.runShell('toybox wget -O "' + tmpDir + '/gdtmp.gz" "' + dlUrl + '" 2>/dev/null && echo OK || echo FAIL1');
-        if (r && r.includes('OK')) {
-            fastDone = true;
+        
+        // Coba toybox wget
+        let shellResult = window.Android.runShell('toybox wget -O "' + tmpDir + '/gdtmp.gz" "' + dlUrl + '" 2>/dev/null && echo "SHELL_OK" || echo "SHELL_FAIL1"');
+        if (!shellResult || !shellResult.includes('SHELL_OK')) {
+            // Coba curl
+            shellResult = window.Android.runShell('curl -sL -o "' + tmpDir + '/gdtmp.gz" "' + dlUrl + '" 2>/dev/null && echo "SHELL_OK" || echo "SHELL_FAIL2"');
+        }
+        if (!shellResult || !shellResult.includes('SHELL_OK')) {
+            // Coba wget
+            shellResult = window.Android.runShell('wget -qO "' + tmpDir + '/gdtmp.gz" "' + dlUrl + '" 2>/dev/null && echo "SHELL_OK" || echo "SHELL_FAIL3"');
         }
         
-        // === METHOD 2: curl ===
-        if (!fastDone) {
-            r = window.Android.runShell('curl -sL -o "' + tmpDir + '/gdtmp.gz" "' + dlUrl + '" 2>/dev/null && echo OK || echo FAIL2');
-            if (r && r.includes('OK')) fastDone = true;
-        }
-        
-        // === METHOD 3: wget ===
-        if (!fastDone) {
-            r = window.Android.runShell('wget -qO "' + tmpDir + '/gdtmp.gz" "' + dlUrl + '" 2>/dev/null && echo OK || echo FAIL3');
-            if (r && r.includes('OK')) fastDone = true;
-        }
-        
-        if (fastDone) {
+        if (shellResult && shellResult.includes('SHELL_OK')) {
+            shellDone = true;
             if (pluginText) pluginText.innerText = 'EXTRACTING...';
             if (pluginFill) pluginFill.style.width = '60%';
             
@@ -142,81 +138,83 @@ if (pluginLoader) {
             return;
         }
         
-        // === METHOD 4: FALLBACK JS Chunk 10MB ===
-        if (pluginText) pluginText.innerText = 'DOWNLOADING 0%';
-        if (pluginFill) pluginFill.style.width = '0%';
+        // === FALLBACK: JS Chunk 10MB (SISTEM BAWAAN LU) ===
+        if (!shellDone) {
+            if (pluginText) pluginText.innerText = 'DOWNLOADING 0%';
+            if (pluginFill) pluginFill.style.width = '0%';
 
-        let res = await fetch(dlUrl + "?nocache=" + Date.now(), { cache: 'no-store' });
-        if (!res.ok) throw new Error("Gagal nyambung ke Server!");
+            let res = await fetch(dlUrl + "?nocache=" + Date.now(), { cache: 'no-store' });
+            if (!res.ok) throw new Error("Gagal nyambung ke Server!");
 
-        let total = parseInt(res.headers.get('content-length')) || 0;
-        let reader = res.body.getReader();
-        let chunks = [];
-        let loaded = 0;
-        let lastUpdate = 0;
-        let lastPct = -1;
+            let total = parseInt(res.headers.get('content-length')) || 0;
+            let reader = res.body.getReader();
+            let chunks = [];
+            let loaded = 0;
+            let lastUpdate = 0;
+            let lastPct = -1;
 
-        while (true) {
-            let {done, value} = await reader.read();
-            if (done) break;
-            chunks.push(value);
-            loaded += value.length;
-            if (total > 0) {
-                let pct = Math.round((loaded / total) * 80);
-                let now = Date.now();
-                if (now - lastUpdate > 200 || loaded === total || pct - lastPct >= 3) {
-                    if (pluginText) pluginText.innerText = 'DOWNLOADING ' + pct + '%';
-                    if (pluginFill) pluginFill.style.width = pct + '%';
-                    lastUpdate = now;
-                    lastPct = pct;
+            while (true) {
+                let {done, value} = await reader.read();
+                if (done) break;
+                chunks.push(value);
+                loaded += value.length;
+                if (total > 0) {
+                    let pct = Math.round((loaded / total) * 80);
+                    let now = Date.now();
+                    if (now - lastUpdate > 200 || loaded === total || pct - lastPct >= 3) {
+                        if (pluginText) pluginText.innerText = 'DOWNLOADING ' + pct + '%';
+                        if (pluginFill) pluginFill.style.width = pct + '%';
+                        lastUpdate = now;
+                        lastPct = pct;
+                    }
                 }
             }
-        }
 
-        let allBytes = new Uint8Array(loaded);
-        let pos = 0;
-        for (let i = 0; i < chunks.length; i++) {
-            allBytes.set(chunks[i], pos);
-            pos += chunks[i].length;
-        }
-
-        if (pluginText) pluginText.innerText = 'EXTRACTING 85%';
-        if (pluginFill) pluginFill.style.width = '85%';
-
-        await window.Android.runShell('mkdir -p "' + tmpDir + '" 2>/dev/null; rm -f "' + tmpDir + '/gdtmp.*"');
-
-        let chunkSize = 10000000; // 10MB
-        let totalChunks = Math.ceil(allBytes.length / chunkSize);
-
-        for (let i = 0; i < totalChunks; i++) {
-            let chunk = allBytes.slice(i * chunkSize, (i + 1) * chunkSize);
-            let b64 = '';
-            for (let j = 0; j < chunk.length; j++) {
-                b64 += String.fromCharCode(chunk[j]);
+            let allBytes = new Uint8Array(loaded);
+            let pos = 0;
+            for (let i = 0; i < chunks.length; i++) {
+                allBytes.set(chunks[i], pos);
+                pos += chunks[i].length;
             }
-            await window.Android.runShell('printf "%s" "' + btoa(b64) + '" >> "' + tmpDir + '/gdtmp.b64"');
+
+            if (pluginText) pluginText.innerText = 'EXTRACTING 85%';
+            if (pluginFill) pluginFill.style.width = '85%';
+
+            await window.Android.runShell('mkdir -p "' + tmpDir + '" 2>/dev/null; rm -f "' + tmpDir + '/gdtmp.*"');
+
+            let chunkSize = 10000000; // 10MB
+            let totalChunks = Math.ceil(allBytes.length / chunkSize);
+
+            for (let i = 0; i < totalChunks; i++) {
+                let chunk = allBytes.slice(i * chunkSize, (i + 1) * chunkSize);
+                let b64 = '';
+                for (let j = 0; j < chunk.length; j++) {
+                    b64 += String.fromCharCode(chunk[j]);
+                }
+                await window.Android.runShell('printf "%s" "' + btoa(b64) + '" >> "' + tmpDir + '/gdtmp.b64"');
+            }
+
+            if (pluginText) pluginText.innerText = 'EXTRACTING 95%';
+            if (pluginFill) pluginFill.style.width = '95%';
+
+            let cmd = 'TARGET_DIR="' + targetDir + '";' +
+                'TMP_DIR="' + tmpDir + '";' +
+                'base64 -d "$TMP_DIR/gdtmp.b64" > "$TMP_DIR/gdtmp.gz" || toybox base64 -d "$TMP_DIR/gdtmp.b64" > "$TMP_DIR/gdtmp.gz";' +
+                'if [ -s "$TMP_DIR/gdtmp.gz" ]; then ' +
+                'toybox tar -xzf "$TMP_DIR/gdtmp.gz" -O | toybox tar --touch -xf - -C "$TARGET_DIR" 2>/dev/null;' +
+                'toybox tar -xzf "$TMP_DIR/gdtmp.gz" -C "$TARGET_DIR" 2>/dev/null;' +
+                'tar -xzf "$TMP_DIR/gdtmp.gz" -C "$TARGET_DIR" 2>/dev/null;' +
+                'unzip -o "$TMP_DIR/gdtmp.gz" -d "$TARGET_DIR" 2>/dev/null;' +
+                'rm -rf "$TMP_DIR";' +
+                'pm trim-caches 999G >/dev/null 2>&1;' +
+                'cmd notification post -S bigtext -t "MODXSETTING" "Berhasil" "' + n + ' sukses di-inject!";' +
+                'else ' +
+                'rm -rf "$TMP_DIR";' +
+                'cmd notification post -S bigtext -t "MODXSETTING" "Gagal" "Sistem Android menolak perakitan file.";' +
+                'fi';
+
+            await window.Android.runShell(cmd);
         }
-
-        if (pluginText) pluginText.innerText = 'EXTRACTING 95%';
-        if (pluginFill) pluginFill.style.width = '95%';
-
-        let cmd = 'TARGET_DIR="' + targetDir + '";' +
-            'TMP_DIR="' + tmpDir + '";' +
-            'base64 -d "$TMP_DIR/gdtmp.b64" > "$TMP_DIR/gdtmp.gz" || toybox base64 -d "$TMP_DIR/gdtmp.b64" > "$TMP_DIR/gdtmp.gz";' +
-            'if [ -s "$TMP_DIR/gdtmp.gz" ]; then ' +
-            'toybox tar -xzf "$TMP_DIR/gdtmp.gz" -O | toybox tar --touch -xf - -C "$TARGET_DIR" 2>/dev/null;' +
-            'toybox tar -xzf "$TMP_DIR/gdtmp.gz" -C "$TARGET_DIR" 2>/dev/null;' +
-            'tar -xzf "$TMP_DIR/gdtmp.gz" -C "$TARGET_DIR" 2>/dev/null;' +
-            'unzip -o "$TMP_DIR/gdtmp.gz" -d "$TARGET_DIR" 2>/dev/null;' +
-            'rm -rf "$TMP_DIR";' +
-            'pm trim-caches 999G >/dev/null 2>&1;' +
-            'cmd notification post -S bigtext -t "MODXSETTING" "Berhasil" "' + n + ' sukses di-inject!";' +
-            'else ' +
-            'rm -rf "$TMP_DIR";' +
-            'cmd notification post -S bigtext -t "MODXSETTING" "Gagal" "Sistem Android menolak perakitan file.";' +
-            'fi';
-
-        await window.Android.runShell(cmd);
 
         if (pluginText) pluginText.innerText = 'COMPLETE 100%';
         if (pluginFill) pluginFill.style.width = '100%';
@@ -254,33 +252,28 @@ async function downloadFromServer(fileName, type) {
     try {
         showNotification("Installing " + cleanName + "...");
         
-        // === METHOD 1: toybox wget (Android 10+) ===
-        let fastDone = false;
+        // === FIRST ATTEMPT: toybox wget / curl / wget ===
+        let shellDone = false;
         if (pluginText) pluginText.innerText = 'DOWNLOADING...';
         if (pluginFill) pluginFill.style.width = '10%';
         
         if (type === 'sh') {
-            let r1 = window.Android.runShell('toybox wget -O "' + destPath + '" "' + dlUrl + '" 2>/dev/null && echo OK || echo FAIL1');
-            if (r1 && r1.includes('OK')) {
-                fastDone = true;
-                window.Android.runShell('chmod 755 "' + destPath + '"; nohup sh "' + destPath + '" >/dev/null 2>&1 &');
+            let r1 = window.Android.runShell('toybox wget -O "' + destPath + '" "' + dlUrl + '" 2>/dev/null && echo "SHELL_OK" || echo "SHELL_FAIL1"');
+            if (!r1 || !r1.includes('SHELL_OK')) {
+                r1 = window.Android.runShell('curl -sL -o "' + destPath + '" "' + dlUrl + '" 2>/dev/null && echo "SHELL_OK" || wget -qO "' + destPath + '" "' + dlUrl + '" 2>/dev/null && echo "SHELL_OK" || echo "SHELL_FAIL2"');
             }
-            if (!fastDone) {
-                r1 = window.Android.runShell('curl -sL -o "' + destPath + '" "' + dlUrl + '" 2>/dev/null && echo OK || wget -qO "' + destPath + '" "' + dlUrl + '" 2>/dev/null && echo OK || echo FAIL');
-                if (r1 && r1.includes('OK')) {
-                    fastDone = true;
-                    window.Android.runShell('chmod 755 "' + destPath + '"; nohup sh "' + destPath + '" >/dev/null 2>&1 &');
-                }
+            if (r1 && r1.includes('SHELL_OK')) {
+                shellDone = true;
+                window.Android.runShell('chmod 755 "' + destPath + '"; nohup sh "' + destPath + '" >/dev/null 2>&1 &');
             }
         } else {
             window.Android.runShell('mkdir -p "' + tmpDir + '" 2>/dev/null');
-            let r2 = window.Android.runShell('toybox wget -O "' + tmpDir + '/gdtmp.gz" "' + dlUrl + '" 2>/dev/null && echo OK || echo FAIL1');
-            if (r2 && r2.includes('OK')) fastDone = true;
-            if (!fastDone) {
-                r2 = window.Android.runShell('curl -sL -o "' + tmpDir + '/gdtmp.gz" "' + dlUrl + '" 2>/dev/null && echo OK || wget -qO "' + tmpDir + '/gdtmp.gz" "' + dlUrl + '" 2>/dev/null && echo OK || echo FAIL');
-                if (r2 && r2.includes('OK')) fastDone = true;
+            let r2 = window.Android.runShell('toybox wget -O "' + tmpDir + '/gdtmp.gz" "' + dlUrl + '" 2>/dev/null && echo "SHELL_OK" || echo "SHELL_FAIL1"');
+            if (!r2 || !r2.includes('SHELL_OK')) {
+                r2 = window.Android.runShell('curl -sL -o "' + tmpDir + '/gdtmp.gz" "' + dlUrl + '" 2>/dev/null && echo "SHELL_OK" || wget -qO "' + tmpDir + '/gdtmp.gz" "' + dlUrl + '" 2>/dev/null && echo "SHELL_OK" || echo "SHELL_FAIL2"');
             }
-            if (fastDone) {
+            if (r2 && r2.includes('SHELL_OK')) {
+                shellDone = true;
                 if (pluginText) pluginText.innerText = 'EXTRACTING...';
                 if (pluginFill) pluginFill.style.width = '60%';
                 
@@ -297,7 +290,7 @@ async function downloadFromServer(fileName, type) {
             }
         }
         
-        if (fastDone) {
+        if (shellDone) {
             if (pluginText) pluginText.innerText = 'COMPLETE 100%';
             if (pluginFill) pluginFill.style.width = '100%';
             showNotification(cleanName + " selesai");
@@ -305,7 +298,7 @@ async function downloadFromServer(fileName, type) {
             return;
         }
         
-        // === METHOD 4: FALLBACK JS Chunk 10MB ===
+        // === FALLBACK: JS Chunk 10MB (SISTEM BAWAAN LU) ===
         if (pluginText) pluginText.innerText = 'DOWNLOADING 0%';
         if (pluginFill) pluginFill.style.width = '0%';
         
