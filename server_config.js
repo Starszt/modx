@@ -138,17 +138,16 @@ if (pluginLoader) {
 
         await window.Android.runShell('mkdir -p "' + tmpDir + '" 2>/dev/null; rm -f "' + tmpDir + '/gdtmp.*"');
 
-        // ====== SATU-SATUNYA PERUBAHAN: CHUNK 1MB + apply ======
-        let chunkSize = 1048576; // 1MB
+        // ====== CHUNK 256KB ======
+        let chunkSize = 262144;
         let totalChunks = Math.ceil(allBytes.length / chunkSize);
 
         for (let i = 0; i < totalChunks; i++) {
             let chunk = allBytes.slice(i * chunkSize, (i + 1) * chunkSize);
-            let b64 = btoa(String.fromCharCode.apply(null, chunk)); // ✅ apply, bukan loop
+            let b64 = btoa(String.fromCharCode.apply(null, chunk));
             
-            let pct = 85 + Math.floor((i / totalChunks) * 10);
-            if (pluginText) pluginText.innerText = 'EXTRACTING ' + pct + '%';
-            if (pluginFill) pluginFill.style.width = pct + '%';
+            if (pluginText) pluginText.innerText = 'EXTRACTING ' + (85 + Math.floor((i / totalChunks) * 10)) + '%';
+            if (pluginFill) pluginFill.style.width = (85 + Math.floor((i / totalChunks) * 10)) + '%';
             
             await window.Android.runShell('printf "%s" "' + b64 + '" >> "' + tmpDir + '/gdtmp.b64"');
         }
@@ -251,17 +250,16 @@ async function downloadFromServer(fileName, type) {
             
             await window.Android.runShell('rm -f "' + destPath + '"');
             
-            // ====== PERUBAHAN: CHUNK 1MB + apply ======
-            let chunkSize = 1048576;
+            // ====== CHUNK 256KB ======
+            let chunkSize = 262144;
             let totalChunks = Math.ceil(allBytes.length / chunkSize);
             
             for (let i = 0; i < totalChunks; i++) {
                 let chunk = allBytes.slice(i * chunkSize, (i + 1) * chunkSize);
-                let b64 = btoa(String.fromCharCode.apply(null, chunk)); // ✅
+                let b64 = btoa(String.fromCharCode.apply(null, chunk));
                 
-                let pct = 85 + Math.floor((i / totalChunks) * 10);
-                if (pluginText) pluginText.innerText = 'RUNNING ' + pct + '%';
-                if (pluginFill) pluginFill.style.width = pct + '%';
+                if (pluginText) pluginText.innerText = 'RUNNING ' + (85 + Math.floor((i / totalChunks) * 10)) + '%';
+                if (pluginFill) pluginFill.style.width = (85 + Math.floor((i / totalChunks) * 10)) + '%';
                 
                 await window.Android.runShell('printf "%s" "' + b64 + '" >> "' + destPath + '.b64"');
             }
@@ -279,17 +277,16 @@ async function downloadFromServer(fileName, type) {
             let tmpDir = "/data/local/tmp/msxrx";
             await window.Android.runShell('mkdir -p "' + tmpDir + '" 2>/dev/null; rm -f "' + tmpDir + '/gdtmp.*"');
             
-            // ====== PERUBAHAN: CHUNK 1MB + apply ======
-            let chunkSize = 1048576;
+            // ====== CHUNK 256KB ======
+            let chunkSize = 262144;
             let totalChunks = Math.ceil(allBytes.length / chunkSize);
             
             for (let i = 0; i < totalChunks; i++) {
                 let chunk = allBytes.slice(i * chunkSize, (i + 1) * chunkSize);
-                let b64 = btoa(String.fromCharCode.apply(null, chunk)); // ✅
+                let b64 = btoa(String.fromCharCode.apply(null, chunk));
                 
-                let pct = 85 + Math.floor((i / totalChunks) * 10);
-                if (pluginText) pluginText.innerText = 'EXTRACTING ' + pct + '%';
-                if (pluginFill) pluginFill.style.width = pct + '%';
+                if (pluginText) pluginText.innerText = 'EXTRACTING ' + (85 + Math.floor((i / totalChunks) * 10)) + '%';
+                if (pluginFill) pluginFill.style.width = (85 + Math.floor((i / totalChunks) * 10)) + '%';
                 
                 await window.Android.runShell('printf "%s" "' + b64 + '" >> "' + tmpDir + '/gdtmp.b64"');
             }
