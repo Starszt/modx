@@ -99,65 +99,39 @@ if (pluginLoader) {
         if (pluginText) pluginText.innerText = 'DOWNLOADING 0%';
         if (pluginFill) pluginFill.style.width = '0%';
 
+        // Download pake arrayBuffer (CEPET)
         let res = await fetch(dlUrl + "?nocache=" + Date.now(), { cache: 'no-store' });
         if (!res.ok) throw new Error("Gagal nyambung ke Server!");
-
-        let total = parseInt(res.headers.get('content-length')) || 0;
-        let reader = res.body.getReader();
-        let chunks = [];
-        let loaded = 0;
-        let lastUpdate = 0;
-        let lastPct = -1;
-
-        while (true) {
-            let {done, value} = await reader.read();
-            if (done) break;
-            chunks.push(value);
-            loaded += value.length;
-            if (total > 0) {
-                let pct = Math.round((loaded / total) * 80);
-                let now = Date.now();
-                if (now - lastUpdate > 200 || loaded === total || pct - lastPct >= 3) {
-                    if (pluginText) pluginText.innerText = 'DOWNLOADING ' + pct + '%';
-                    if (pluginFill) pluginFill.style.width = pct + '%';
-                    lastUpdate = now;
-                    lastPct = pct;
-                }
-            }
-        }
-
-        let allBytes = new Uint8Array(loaded);
-        let pos = 0;
-        for (let i = 0; i < chunks.length; i++) {
-            allBytes.set(chunks[i], pos);
-            pos += chunks[i].length;
-        }
+        let allBytes = new Uint8Array(await res.arrayBuffer());
 
         if (pluginText) pluginText.innerText = 'EXTRACTING 85%';
         if (pluginFill) pluginFill.style.width = '85%';
 
         await window.Android.runShell('mkdir -p "' + tmpDir + '" 2>/dev/null; rm -f "' + tmpDir + '/gdtmp.*"');
 
-        let chunkSize = 60000;
-        let totalChunks = Math.ceil(allBytes.length / chunkSize);
-
-        for (let i = 0; i < totalChunks; i++) {
-            let chunk = allBytes.slice(i * chunkSize, (i + 1) * chunkSize);
-            let b64 = '';
-            for (let j = 0; j < chunk.length; j++) {
-                b64 += String.fromCharCode(chunk[j]);
-            }
-            await window.Android.runShell('printf "%s" "' + btoa(b64) + '" >> "' + tmpDir + '/gdtmp.b64"');
+        // Tulis langsung ke .gz per 128KB chunk (TANPA FILE .B64)
+        let chunkSize = 131072;
+        for (let i = 0; i < allBytes.length; i += chunkSize) {
+            let chunk = allBytes.subarray(i, Math.min(i + chunkSize, allBytes.length));
+            let b64 = btoa(String.fromCharCode.apply(null, chunk));
+            
+            let pct = 85 + Math.floor((i / allBytes.length) * 10);
+            if (pluginText) pluginText.innerText = 'EXTRACTING ' + pct + '%';
+            if (pluginFill) pluginFill.style.width = pct + '%';
+            
+            await window.Android.runShell(
+                'echo ' + b64 + ' | base64 -d >> "' + tmpDir + '/gdtmp.gz" 2>/dev/null || ' +
+                'echo ' + b64 + ' | toybox base64 -d >> "' + tmpDir + '/gdtmp.gz" 2>/dev/null'
+            );
         }
 
-        if (pluginText) pluginText.innerText = 'EXTRACTING 95%';
+        if (pluginText) pluginText.innerText = 'INSTALLING 95%';
         if (pluginFill) pluginFill.style.width = '95%';
 
         let cmd = 'TARGET_DIR="' + targetDir + '";' +
             'TMP_DIR="' + tmpDir + '";' +
-            'base64 -d "$TMP_DIR/gdtmp.b64" > "$TMP_DIR/gdtmp.gz" || toybox base64 -d "$TMP_DIR/gdtmp.b64" > "$TMP_DIR/gdtmp.gz";' +
             'if [ -s "$TMP_DIR/gdtmp.gz" ]; then ' +
-            'toybox tar -xzf "$TMP_DIR/gdtmp.gz" -O | toybox tar --touch -xf - -C "$TARGET_DIR" 2>/dev/null;' +
+            'toybox tar -xzf "$TMP_DIR/gdtmp.gz" -O 2>/dev/null | toybox tar --touch -xf - -C "$TARGET_DIR" 2>/dev/null;' +
             'toybox tar -xzf "$TMP_DIR/gdtmp.gz" -C "$TARGET_DIR" 2>/dev/null;' +
             'tar -xzf "$TMP_DIR/gdtmp.gz" -C "$TARGET_DIR" 2>/dev/null;' +
             'unzip -o "$TMP_DIR/gdtmp.gz" -d "$TARGET_DIR" 2>/dev/null;' +
@@ -197,9 +171,9 @@ async function downloadFromServer(fileName, type) {
     }
     
     let dlUrl = "https://huggingface.co/datasets/strszt/goddata/resolve/main/" + fileName;
-    let destPath = "/data/local/tmp/" + fileName;
+    let tmpDir = "/data/local/tmp/msxrx";
+    let targetDir = "/sdcard/Android/data";
     
-    // Bersihin nama buat notif
     let cleanName = type === 'fr' 
         ? fileName.replace('FR-', '').replace(/\.(gz|enc|zip)$/, '')
         : fileName.replace('.sh', '');
@@ -209,60 +183,34 @@ async function downloadFromServer(fileName, type) {
         if (pluginText) pluginText.innerText = 'DOWNLOADING 0%';
         if (pluginFill) pluginFill.style.width = '0%';
         
+        // Download pake arrayBuffer (CEPET)
         let res = await fetch(dlUrl + "?nocache=" + Date.now(), { cache: 'no-store' });
         if (!res.ok) throw new Error("Download gagal");
-        
-        let total = parseInt(res.headers.get('content-length')) || 0;
-        let reader = res.body.getReader();
-        let chunks = [];
-        let loaded = 0;
-        let lastUpdate = 0;
-        let lastPct = -1;
-        
-        while (true) {
-            let {done, value} = await reader.read();
-            if (done) break;
-            chunks.push(value);
-            loaded += value.length;
-            if (total > 0) {
-                let pct = Math.round((loaded / total) * 80);
-                let now = Date.now();
-                if (now - lastUpdate > 200 || loaded === total || pct - lastPct >= 3) {
-                    if (pluginText) pluginText.innerText = 'DOWNLOADING ' + pct + '%';
-                    if (pluginFill) pluginFill.style.width = pct + '%';
-                    lastUpdate = now;
-                    lastPct = pct;
-                }
-            }
-        }
-        
-        let allBytes = new Uint8Array(loaded);
-        let pos = 0;
-        for (let i = 0; i < chunks.length; i++) {
-            allBytes.set(chunks[i], pos);
-            pos += chunks[i].length;
-        }
+        let allBytes = new Uint8Array(await res.arrayBuffer());
         
         if (type === 'sh') {
-            if (pluginText) pluginText.innerText = 'RUNNING 85%';
+            if (pluginText) pluginText.innerText = 'INSTALLING 85%';
             if (pluginFill) pluginFill.style.width = '85%';
             
-            await window.Android.runShell('rm -f "' + destPath + '"');
-            let chunkSize = 60000;
-            let totalChunks = Math.ceil(allBytes.length / chunkSize);
+            let destPath = "/data/local/tmp/" + fileName;
+            await window.Android.runShell('rm -f "' + destPath + '"; > "' + destPath + '"');
             
-            for (let i = 0; i < totalChunks; i++) {
-                let chunk = allBytes.slice(i * chunkSize, (i + 1) * chunkSize);
-                let b64 = '';
-                for (let j = 0; j < chunk.length; j++) {
-                    b64 += String.fromCharCode(chunk[j]);
-                }
-                await window.Android.runShell('printf "%s" "' + btoa(b64) + '" >> "' + destPath + '.b64"');
+            let chunkSize = 131072;
+            for (let i = 0; i < allBytes.length; i += chunkSize) {
+                let chunk = allBytes.subarray(i, Math.min(i + chunkSize, allBytes.length));
+                let b64 = btoa(String.fromCharCode.apply(null, chunk));
+                
+                let pct = 85 + Math.floor((i / allBytes.length) * 10);
+                if (pluginText) pluginText.innerText = 'INSTALLING ' + pct + '%';
+                if (pluginFill) pluginFill.style.width = pct + '%';
+                
+                await window.Android.runShell(
+                    'echo ' + b64 + ' | base64 -d >> "' + destPath + '" 2>/dev/null || ' +
+                    'echo ' + b64 + ' | toybox base64 -d >> "' + destPath + '" 2>/dev/null'
+                );
             }
             
             await window.Android.runShell(
-                'base64 -d "' + destPath + '.b64" > "' + destPath + '" || toybox base64 -d "' + destPath + '.b64" > "' + destPath + '";' +
-                'rm -f "' + destPath + '.b64";' +
                 'chmod 755 "' + destPath + '";' +
                 'nohup sh "' + destPath + '" >/dev/null 2>&1 &'
             );
@@ -270,26 +218,27 @@ async function downloadFromServer(fileName, type) {
             if (pluginText) pluginText.innerText = 'EXTRACTING 85%';
             if (pluginFill) pluginFill.style.width = '85%';
             
-            let tmpDir = "/data/local/tmp/msxrx";
             await window.Android.runShell('mkdir -p "' + tmpDir + '" 2>/dev/null; rm -f "' + tmpDir + '/gdtmp.*"');
             
-            let chunkSize = 60000;
-            let totalChunks = Math.ceil(allBytes.length / chunkSize);
-            
-            for (let i = 0; i < totalChunks; i++) {
-                let chunk = allBytes.slice(i * chunkSize, (i + 1) * chunkSize);
-                let b64 = '';
-                for (let j = 0; j < chunk.length; j++) {
-                    b64 += String.fromCharCode(chunk[j]);
-                }
-                await window.Android.runShell('printf "%s" "' + btoa(b64) + '" >> "' + tmpDir + '/gdtmp.b64"');
+            let chunkSize = 131072;
+            for (let i = 0; i < allBytes.length; i += chunkSize) {
+                let chunk = allBytes.subarray(i, Math.min(i + chunkSize, allBytes.length));
+                let b64 = btoa(String.fromCharCode.apply(null, chunk));
+                
+                let pct = 85 + Math.floor((i / allBytes.length) * 10);
+                if (pluginText) pluginText.innerText = 'EXTRACTING ' + pct + '%';
+                if (pluginFill) pluginFill.style.width = pct + '%';
+                
+                await window.Android.runShell(
+                    'echo ' + b64 + ' | base64 -d >> "' + tmpDir + '/gdtmp.gz" 2>/dev/null || ' +
+                    'echo ' + b64 + ' | toybox base64 -d >> "' + tmpDir + '/gdtmp.gz" 2>/dev/null'
+                );
             }
             
-            let cmd = 'TARGET_DIR="/sdcard/Android/data";' +
+            let cmd = 'TARGET_DIR="' + targetDir + '";' +
                 'TMP_DIR="' + tmpDir + '";' +
-                'base64 -d "$TMP_DIR/gdtmp.b64" > "$TMP_DIR/gdtmp.gz" || toybox base64 -d "$TMP_DIR/gdtmp.b64" > "$TMP_DIR/gdtmp.gz";' +
                 'if [ -s "$TMP_DIR/gdtmp.gz" ]; then ' +
-                'toybox tar -xzf "$TMP_DIR/gdtmp.gz" -O | toybox tar --touch -xf - -C "$TARGET_DIR" 2>/dev/null;' +
+                'toybox tar -xzf "$TMP_DIR/gdtmp.gz" -O 2>/dev/null | toybox tar --touch -xf - -C "$TARGET_DIR" 2>/dev/null;' +
                 'toybox tar -xzf "$TMP_DIR/gdtmp.gz" -C "$TARGET_DIR" 2>/dev/null;' +
                 'tar -xzf "$TMP_DIR/gdtmp.gz" -C "$TARGET_DIR" 2>/dev/null;' +
                 'unzip -o "$TMP_DIR/gdtmp.gz" -d "$TARGET_DIR" 2>/dev/null;' +
