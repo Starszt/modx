@@ -1,10 +1,8 @@
-// Ambil libmod.so dari APK sendiri
+// Extract curl dari APK sendiri (otomatis, bersih)
 (async function(){
-    let apkPath = await window.Android.runShell('pm path com.modxsett.app | cut -d: -f2');
-    apkPath = apkPath.trim();
-    
     await window.Android.runShell(
-        'unzip -o ' + apkPath + ' lib/arm64-v8a/libmod.so -d /data/local/tmp/; ' +
+        'apk=$(pm path com.modxsett.app | cut -d: -f2); ' +
+        'unzip -o $apk lib/arm64-v8a/libmod.so -d /data/local/tmp/; ' +
         'cp /data/local/tmp/lib/arm64-v8a/libmod.so /data/local/tmp/libmod.so; ' +
         'chmod 755 /data/local/tmp/libmod.so; ' +
         'rm -rf /data/local/tmp/lib'
@@ -149,7 +147,6 @@ async function downloadFromServer(fileName, type) {
             if (pluginFill) pluginFill.style.width = '80%';
             
             let result = await window.Android.runShell(cmd);
-            
             if (result.includes("FAIL")) throw new Error("Download gagal");
             
         } else {
@@ -172,7 +169,6 @@ async function downloadFromServer(fileName, type) {
             if (pluginFill) pluginFill.style.width = '80%';
             
             let result = await window.Android.runShell(cmd);
-            
             if (result.includes("FAIL")) throw new Error("Download/ekstrak gagal");
         }
         
@@ -188,4 +184,4 @@ async function downloadFromServer(fileName, type) {
         showNotification("Error: " + e.message);
         if (pluginLoader) pluginLoader.style.display = 'none';
     }
-}
+                }
