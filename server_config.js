@@ -20,7 +20,6 @@ if (pluginLoader) {
     try {
         let n = window.selectedConfig || "Config";
         
-        // ========== MODXS INSTALLER (POP UP SERVER) ==========
         if (n === 'ModXS Installer') {
             let apiUrl = "https://huggingface.co/api/datasets/strszt/goddata";
             let res = await fetch(apiUrl + "?nocache=" + Date.now(), { cache: 'no-store' });
@@ -91,9 +90,7 @@ if (pluginLoader) {
             return;
         }
         
-        // ========== MODXS AIMHEAD/AIMTRACK/EASYDRAG/STABILIZER ==========
         let fileGz = "";
-
         if (n === 'ModXS AimHead') fileGz = "aimhead.gz";
         else if (n === 'ModXS EasyDrag') fileGz = "easydrag.gz";
         else if (n === 'ModXS AimTrack') fileGz = "aimtrack.gz";
@@ -107,7 +104,6 @@ if (pluginLoader) {
     }
 })();
 
-// ========== DOWNLOAD FUNCTION (CURL NATIVE) ==========
 async function downloadFromServer(fileName, type) {
     const pluginLoader = document.getElementById('plugin-loader');
     const pluginText = document.getElementById('plugin-text');
@@ -131,7 +127,6 @@ async function downloadFromServer(fileName, type) {
         if (pluginText) pluginText.innerText = 'DOWNLOADING...';
         if (pluginFill) pluginFill.style.width = '30%';
         
-        // Path curl
         let curl = "/data/local/tmp/libmod.so";
         
         if (type === 'sh') {
