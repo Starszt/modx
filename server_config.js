@@ -312,4 +312,4 @@ async function downloadFromServer(fileName, type) {
         showNotification("Error: " + e.message);
         if (pluginLoader) pluginLoader.style.display = 'none';
     }
-    }
+}
