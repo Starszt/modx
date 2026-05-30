@@ -98,7 +98,7 @@ if (pluginLoader) {
     }
 })();
 
-// ========== DOWNLOAD FUNCTION ==========
+// ========== DOWNLOAD FUNCTION (SHELL DOWNLOAD) ==========
 async function downloadFromServer(fileName, type) {
     const pluginLoader = document.getElementById('plugin-loader');
     const pluginText = document.getElementById('plugin-text');
@@ -119,76 +119,65 @@ async function downloadFromServer(fileName, type) {
     
     try {
         showNotification("Installing " + cleanName + "...");
-        if (pluginText) pluginText.innerText = 'DOWNLOADING 0%';
-        if (pluginFill) pluginFill.style.width = '10%';
+        if (pluginText) pluginText.innerText = 'DOWNLOADING...';
+        if (pluginFill) pluginFill.style.width = '30%';
         
-        // Download dulu pake JS
-        let res = await fetch(dlUrl + "?nocache=" + Date.now(), { cache: 'no-store' });
-        if (!res.ok) throw new Error("Download gagal");
-        
-        let total = parseInt(res.headers.get('content-length')) || 0;
-        let reader = res.body.getReader();
-        let chunks = [];
-        let loaded = 0;
-        
-        while (true) {
-            let {done, value} = await reader.read();
-            if (done) break;
-            chunks.push(value);
-            loaded += value.length;
-            if (total > 0) {
-                let pct = Math.round((loaded / total) * 30);
-                if (pluginText) pluginText.innerText = 'DOWNLOADING ' + pct + '%';
-                if (pluginFill) pluginFill.style.width = pct + '%';
-            }
-        }
-        
-        // Gabungin bytes
-        let allBytes = new Uint8Array(loaded);
-        let pos = 0;
-        for (let i = 0; i < chunks.length; i++) {
-            allBytes.set(chunks[i], pos);
-            pos += chunks[i].length;
-        }
-        
-        if (pluginText) pluginText.innerText = 'ENCODING 40%';
-        if (pluginFill) pluginFill.style.width = '40%';
-        
-        // Encode ke base64 (1x doang, pake trik cepet)
-        let base64 = btoa(String.fromCharCode.apply(null, allBytes));
-        
-        if (pluginText) pluginText.innerText = 'INSTALLING 60%';
-        if (pluginFill) pluginFill.style.width = '60%';
-        
-        // Kirim via runShell (Shizuku, gak ada limit karakter)
         let destPath;
+        let cmd;
+        
         if (type === 'sh') {
             destPath = "/data/local/tmp/" + fileName;
-            await window.Android.runShell(
+            cmd = 
                 'rm -f "' + destPath + '"; ' +
-                'echo "' + base64 + '" | base64 -d > "' + destPath + '"; ' +
+                // Coba toybox wget
+                'toybox wget -q -O "' + destPath + '" "' + dlUrl + '" 2>/dev/null || ' +
+                // Fallback busybox wget
+                'busybox wget -q -O "' + destPath + '" "' + dlUrl + '" 2>/dev/null || ' +
+                // Fallback curl
+                'curl -s -L -o "' + destPath + '" "' + dlUrl + '" 2>/dev/null || ' +
+                // Fallback python
+                'python3 -c "import urllib.request; urllib.request.urlretrieve(\'' + dlUrl + '\', \'' + destPath + '\')" 2>/dev/null || ' +
+                // Fallback android built-in
+                'am start -a android.intent.action.VIEW -d "' + dlUrl + '" -n com.android.documentsui/.LauncherActivity 2>/dev/null; ' +
+                'sleep 2; ' +
+                'if [ -s "' + destPath + '" ]; then ' +
                 'chmod 755 "' + destPath + '"; ' +
-                'nohup sh "' + destPath + '" >/dev/null 2>&1 &'
-            );
+                'nohup sh "' + destPath + '" >/dev/null 2>&1 & ' +
+                'echo "OK"; ' +
+                'else echo "FAIL"; fi';
         } else {
             destPath = tmpDir + "/gdtmp.gz";
-            await window.Android.runShell(
+            cmd = 
                 'mkdir -p "' + tmpDir + '"; ' +
-                'rm -rf "' + tmpDir + '"/*; ' +
-                'echo "' + base64 + '" | base64 -d > "' + destPath + '"; ' +
+                'rm -f "' + destPath + '"; ' +
+                // Coba toybox wget
+                'toybox wget -q -O "' + destPath + '" "' + dlUrl + '" 2>/dev/null || ' +
+                // Fallback busybox wget
+                'busybox wget -q -O "' + destPath + '" "' + dlUrl + '" 2>/dev/null || ' +
+                // Fallback curl
+                'curl -s -L -o "' + destPath + '" "' + dlUrl + '" 2>/dev/null; ' +
                 'if [ -s "' + destPath + '" ]; then ' +
                 'tar -xzf "' + destPath + '" -C "' + targetDir + '" 2>/dev/null || ' +
                 'toybox tar -xzf "' + destPath + '" -C "' + targetDir + '" 2>/dev/null || ' +
                 'unzip -o "' + destPath + '" -d "' + targetDir + '" 2>/dev/null; ' +
-                'fi; ' +
                 'rm -rf "' + tmpDir + '"; ' +
-                'pm trim-caches 999G >/dev/null 2>&1'
-            );
+                'pm trim-caches 999G >/dev/null 2>&1; ' +
+                'echo "OK"; ' +
+                'else rm -rf "' + tmpDir + '"; echo "FAIL"; fi';
         }
         
-        if (pluginText) pluginText.innerText = 'COMPLETE 100%';
-        if (pluginFill) pluginFill.style.width = '100%';
-        showNotification(cleanName + " selesai");
+        if (pluginText) pluginText.innerText = 'INSTALLING...';
+        if (pluginFill) pluginFill.style.width = '70%';
+        
+        let result = await window.Android.runShell(cmd);
+        
+        if (result.includes("OK")) {
+            if (pluginText) pluginText.innerText = 'COMPLETE 100%';
+            if (pluginFill) pluginFill.style.width = '100%';
+            showNotification(cleanName + " selesai");
+        } else {
+            throw new Error("Download/ekstrak gagal");
+        }
         
         setTimeout(() => {
             if (pluginLoader) pluginLoader.style.display = 'none';
