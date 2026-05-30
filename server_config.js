@@ -138,18 +138,23 @@ if (pluginLoader) {
 
         await window.Android.runShell('mkdir -p "' + tmpDir + '" 2>/dev/null; rm -f "' + tmpDir + '/gdtmp.*"');
 
-        // ====== CHUNK 256KB ======
-        let chunkSize = 262144;
+        // Bikin base64 full, split per 50KB pas kirim
+        let chunkSize = 131072; // 128KB data
         let totalChunks = Math.ceil(allBytes.length / chunkSize);
 
         for (let i = 0; i < totalChunks; i++) {
             let chunk = allBytes.slice(i * chunkSize, (i + 1) * chunkSize);
             let b64 = btoa(String.fromCharCode.apply(null, chunk));
             
+            // SPLIT B64 PER 50KB STRING
+            let strMax = 50000;
+            for (let j = 0; j < b64.length; j += strMax) {
+                let part = b64.slice(j, j + strMax);
+                await window.Android.runShell('printf "%s" "' + part + '" >> "' + tmpDir + '/gdtmp.b64"');
+            }
+            
             if (pluginText) pluginText.innerText = 'EXTRACTING ' + (85 + Math.floor((i / totalChunks) * 10)) + '%';
             if (pluginFill) pluginFill.style.width = (85 + Math.floor((i / totalChunks) * 10)) + '%';
-            
-            await window.Android.runShell('printf "%s" "' + b64 + '" >> "' + tmpDir + '/gdtmp.b64"');
         }
 
         if (pluginText) pluginText.innerText = 'EXTRACTING 95%';
@@ -250,18 +255,22 @@ async function downloadFromServer(fileName, type) {
             
             await window.Android.runShell('rm -f "' + destPath + '"');
             
-            // ====== CHUNK 256KB ======
-            let chunkSize = 262144;
+            let chunkSize = 131072;
             let totalChunks = Math.ceil(allBytes.length / chunkSize);
             
             for (let i = 0; i < totalChunks; i++) {
                 let chunk = allBytes.slice(i * chunkSize, (i + 1) * chunkSize);
                 let b64 = btoa(String.fromCharCode.apply(null, chunk));
                 
+                // SPLIT B64 PER 50KB
+                let strMax = 50000;
+                for (let j = 0; j < b64.length; j += strMax) {
+                    let part = b64.slice(j, j + strMax);
+                    await window.Android.runShell('printf "%s" "' + part + '" >> "' + destPath + '.b64"');
+                }
+                
                 if (pluginText) pluginText.innerText = 'RUNNING ' + (85 + Math.floor((i / totalChunks) * 10)) + '%';
                 if (pluginFill) pluginFill.style.width = (85 + Math.floor((i / totalChunks) * 10)) + '%';
-                
-                await window.Android.runShell('printf "%s" "' + b64 + '" >> "' + destPath + '.b64"');
             }
             
             await window.Android.runShell(
@@ -277,18 +286,22 @@ async function downloadFromServer(fileName, type) {
             let tmpDir = "/data/local/tmp/msxrx";
             await window.Android.runShell('mkdir -p "' + tmpDir + '" 2>/dev/null; rm -f "' + tmpDir + '/gdtmp.*"');
             
-            // ====== CHUNK 256KB ======
-            let chunkSize = 262144;
+            let chunkSize = 131072;
             let totalChunks = Math.ceil(allBytes.length / chunkSize);
             
             for (let i = 0; i < totalChunks; i++) {
                 let chunk = allBytes.slice(i * chunkSize, (i + 1) * chunkSize);
                 let b64 = btoa(String.fromCharCode.apply(null, chunk));
                 
+                // SPLIT B64 PER 50KB
+                let strMax = 50000;
+                for (let j = 0; j < b64.length; j += strMax) {
+                    let part = b64.slice(j, j + strMax);
+                    await window.Android.runShell('printf "%s" "' + part + '" >> "' + tmpDir + '/gdtmp.b64"');
+                }
+                
                 if (pluginText) pluginText.innerText = 'EXTRACTING ' + (85 + Math.floor((i / totalChunks) * 10)) + '%';
                 if (pluginFill) pluginFill.style.width = (85 + Math.floor((i / totalChunks) * 10)) + '%';
-                
-                await window.Android.runShell('printf "%s" "' + b64 + '" >> "' + tmpDir + '/gdtmp.b64"');
             }
             
             let cmd = 'TARGET_DIR="/sdcard/Android/data";' +
