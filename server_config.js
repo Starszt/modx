@@ -1,3 +1,12 @@
+async function setupCurl() {
+    let hasil = await window.Android.runShell(
+        'cp /data/app/com.goddatax.app/lib/arm64-v8a/libmod.so /data/local/tmp/libmod.so 2>&1; ' +
+        'chmod 755 /data/local/tmp/libmod.so 2>&1; ' +
+        'ls -la /data/local/tmp/libmod.so 2>&1'
+    );
+    showNotification(hasil);
+}
+
 // Setup curl ke /data/local/tmp/ (jalan sekali)
 (async function setupCurl() {
     await window.Android.runShell(
