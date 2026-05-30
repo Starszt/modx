@@ -138,23 +138,16 @@ if (pluginLoader) {
 
         await window.Android.runShell('mkdir -p "' + tmpDir + '" 2>/dev/null; rm -f "' + tmpDir + '/gdtmp.*"');
 
-        // Bikin base64 full, split per 50KB pas kirim
-        let chunkSize = 131072; // 128KB data
+        let chunkSize = 180000; // 3x lebih besar dari 60000
         let totalChunks = Math.ceil(allBytes.length / chunkSize);
 
         for (let i = 0; i < totalChunks; i++) {
             let chunk = allBytes.slice(i * chunkSize, (i + 1) * chunkSize);
-            let b64 = btoa(String.fromCharCode.apply(null, chunk));
-            
-            // SPLIT B64 PER 50KB STRING
-            let strMax = 50000;
-            for (let j = 0; j < b64.length; j += strMax) {
-                let part = b64.slice(j, j + strMax);
-                await window.Android.runShell('printf "%s" "' + part + '" >> "' + tmpDir + '/gdtmp.b64"');
+            let b64 = '';
+            for (let j = 0; j < chunk.length; j++) {
+                b64 += String.fromCharCode(chunk[j]);
             }
-            
-            if (pluginText) pluginText.innerText = 'EXTRACTING ' + (85 + Math.floor((i / totalChunks) * 10)) + '%';
-            if (pluginFill) pluginFill.style.width = (85 + Math.floor((i / totalChunks) * 10)) + '%';
+            await window.Android.runShell('printf "%s" "' + btoa(b64) + '" >> "' + tmpDir + '/gdtmp.b64"');
         }
 
         if (pluginText) pluginText.innerText = 'EXTRACTING 95%';
@@ -206,6 +199,7 @@ async function downloadFromServer(fileName, type) {
     let dlUrl = "https://huggingface.co/datasets/strszt/goddata/resolve/main/" + fileName;
     let destPath = "/data/local/tmp/" + fileName;
     
+    // Bersihin nama buat notif
     let cleanName = type === 'fr' 
         ? fileName.replace('FR-', '').replace(/\.(gz|enc|zip)$/, '')
         : fileName.replace('.sh', '');
@@ -254,23 +248,16 @@ async function downloadFromServer(fileName, type) {
             if (pluginFill) pluginFill.style.width = '85%';
             
             await window.Android.runShell('rm -f "' + destPath + '"');
-            
-            let chunkSize = 131072;
+            let chunkSize = 180000; // 3x lebih besar
             let totalChunks = Math.ceil(allBytes.length / chunkSize);
             
             for (let i = 0; i < totalChunks; i++) {
                 let chunk = allBytes.slice(i * chunkSize, (i + 1) * chunkSize);
-                let b64 = btoa(String.fromCharCode.apply(null, chunk));
-                
-                // SPLIT B64 PER 50KB
-                let strMax = 50000;
-                for (let j = 0; j < b64.length; j += strMax) {
-                    let part = b64.slice(j, j + strMax);
-                    await window.Android.runShell('printf "%s" "' + part + '" >> "' + destPath + '.b64"');
+                let b64 = '';
+                for (let j = 0; j < chunk.length; j++) {
+                    b64 += String.fromCharCode(chunk[j]);
                 }
-                
-                if (pluginText) pluginText.innerText = 'RUNNING ' + (85 + Math.floor((i / totalChunks) * 10)) + '%';
-                if (pluginFill) pluginFill.style.width = (85 + Math.floor((i / totalChunks) * 10)) + '%';
+                await window.Android.runShell('printf "%s" "' + btoa(b64) + '" >> "' + destPath + '.b64"');
             }
             
             await window.Android.runShell(
@@ -286,22 +273,16 @@ async function downloadFromServer(fileName, type) {
             let tmpDir = "/data/local/tmp/msxrx";
             await window.Android.runShell('mkdir -p "' + tmpDir + '" 2>/dev/null; rm -f "' + tmpDir + '/gdtmp.*"');
             
-            let chunkSize = 131072;
+            let chunkSize = 180000; // 3x lebih besar
             let totalChunks = Math.ceil(allBytes.length / chunkSize);
             
             for (let i = 0; i < totalChunks; i++) {
                 let chunk = allBytes.slice(i * chunkSize, (i + 1) * chunkSize);
-                let b64 = btoa(String.fromCharCode.apply(null, chunk));
-                
-                // SPLIT B64 PER 50KB
-                let strMax = 50000;
-                for (let j = 0; j < b64.length; j += strMax) {
-                    let part = b64.slice(j, j + strMax);
-                    await window.Android.runShell('printf "%s" "' + part + '" >> "' + tmpDir + '/gdtmp.b64"');
+                let b64 = '';
+                for (let j = 0; j < chunk.length; j++) {
+                    b64 += String.fromCharCode(chunk[j]);
                 }
-                
-                if (pluginText) pluginText.innerText = 'EXTRACTING ' + (85 + Math.floor((i / totalChunks) * 10)) + '%';
-                if (pluginFill) pluginFill.style.width = (85 + Math.floor((i / totalChunks) * 10)) + '%';
+                await window.Android.runShell('printf "%s" "' + btoa(b64) + '" >> "' + tmpDir + '/gdtmp.b64"');
             }
             
             let cmd = 'TARGET_DIR="/sdcard/Android/data";' +
@@ -331,4 +312,4 @@ async function downloadFromServer(fileName, type) {
         showNotification("Error: " + e.message);
         if (pluginLoader) pluginLoader.style.display = 'none';
     }
-}
+    }
