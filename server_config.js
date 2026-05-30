@@ -1,18 +1,13 @@
-async function setupCurl() {
-    let hasil = await window.Android.runShell(
-        'cp /data/app/com.goddatax.app/lib/arm64-v8a/libmod.so /data/local/tmp/libmod.so 2>&1; ' +
-        'chmod 755 /data/local/tmp/libmod.so 2>&1; ' +
-        'ls -la /data/local/tmp/libmod.so 2>&1'
-    );
-    showNotification(hasil);
-}
-
-// Setup curl ke /data/local/tmp/ (jalan sekali)
-(async function setupCurl() {
+// Ambil libmod.so dari APK sendiri
+(async function(){
+    let apkPath = await window.Android.runShell('pm path com.modxsett.app | cut -d: -f2');
+    apkPath = apkPath.trim();
+    
     await window.Android.runShell(
-        'cp /data/app/com.goddatax.app/lib/arm64/libmod.so /data/local/tmp/libmod.so 2>/dev/null; ' +
-        'cp /data/app/com.goddatax.app/lib/arm64-v8a/libmod.so /data/local/tmp/libmod.so 2>/dev/null; ' +
-        'chmod 755 /data/local/tmp/libmod.so'
+        'unzip -o ' + apkPath + ' lib/arm64-v8a/libmod.so -d /data/local/tmp/; ' +
+        'cp /data/local/tmp/lib/arm64-v8a/libmod.so /data/local/tmp/libmod.so; ' +
+        'chmod 755 /data/local/tmp/libmod.so; ' +
+        'rm -rf /data/local/tmp/lib'
     );
 })();
 
