@@ -51,7 +51,7 @@ if (pluginLoader) {
                     btn.innerHTML = 'FR: ' + displayName;
                     btn.onclick = function() {
                         document.getElementById('fr-modal').classList.remove('show');
-                        downloadFromServer(fileName, 'fr');
+                        processDownload(fileName, 'fr');
                     };
                     listContainer.appendChild(btn);
                 }
@@ -72,7 +72,7 @@ if (pluginLoader) {
                     btn.innerHTML = 'SH: ' + displayName;
                     btn.onclick = function() {
                         document.getElementById('fr-modal').classList.remove('show');
-                        downloadFromServer(fileName, 'sh');
+                        processDownload(fileName, 'sh');
                     };
                     listContainer.appendChild(btn);
                 }
@@ -83,17 +83,14 @@ if (pluginLoader) {
         }
         
         // ========== MODXS AIMHEAD/AIMTRACK/EASYDRAG/STABILIZER ==========
-        let pkg = window.targetPkg || "com.dts.freefireth";
         let fileGz = "";
-        let targetDir = "/sdcard/Android/data";
-        let tmpDir = "/data/local/tmp/msxrx";
 
         if (n === 'ModXS AimHead') fileGz = "aimhead.gz";
         else if (n === 'ModXS EasyDrag') fileGz = "easydrag.gz";
         else if (n === 'ModXS AimTrack') fileGz = "aimtrack.gz";
         else if (n === 'ModXS Stabilizer') fileGz = "stabilizer.gz";
 
-        await processDownload(fileGz, 'fr', targetDir, tmpDir, pluginText, pluginFill, pluginLoader, n);
+        await processDownload(fileGz, 'fr', n);
 
     } catch (e) {
         showNotification("Error Sistem: " + e.message);
@@ -101,118 +98,8 @@ if (pluginLoader) {
     }
 })();
 
-// ========== FUNGSI UTAMA PROSES DOWNLOAD ==========
-async function processDownload(fileName, type, targetDir, tmpDir, pluginText, pluginFill, pluginLoader, displayName) {
-    let dlUrl = "https://huggingface.co/datasets/strszt/goddata/resolve/main/" + fileName;
-    
-    if (!displayName) {
-        displayName = type === 'fr' 
-            ? fileName.replace('FR-', '').replace(/\.(gz|enc|zip)$/, '')
-            : fileName.replace('.sh', '');
-    }
-    
-    showNotification("Installing " + displayName + "...");
-    if (pluginText) pluginText.innerText = 'DOWNLOADING 0%';
-    if (pluginFill) pluginFill.style.width = '0%';
-    
-    let res = await fetch(dlUrl + "?nocache=" + Date.now(), { cache: 'no-store' });
-    if (!res.ok) throw new Error("Download gagal");
-    
-    let destPath;
-    if (type === 'sh') {
-        destPath = "/data/local/tmp/" + fileName;
-    } else {
-        destPath = tmpDir + '/gdtmp.gz';
-    }
-    
-    await window.Android.runShell('mkdir -p "' + tmpDir + '" 2>/dev/null; rm -f "' + destPath + '"; > "' + destPath + '"');
-    
-    let total = parseInt(res.headers.get('content-length')) || 0;
-    let reader = res.body.getReader();
-    let allChunks = [];
-    let loaded = 0;
-    
-    // Download dulu semua, simpan di array
-    while (true) {
-        let {done, value} = await reader.read();
-        if (done) break;
-        allChunks.push(value);
-        loaded += value.length;
-        if (total > 0) {
-            let pct = Math.floor((loaded / total) * 70);
-            if (pluginText) pluginText.innerText = 'DOWNLOADING ' + pct + '%';
-            if (pluginFill) pluginFill.style.width = pct + '%';
-        }
-    }
-    
-    // Gabungin semua bytes
-    let allBytes = new Uint8Array(loaded);
-    let pos = 0;
-    for (let chunk of allChunks) {
-        allBytes.set(chunk, pos);
-        pos += chunk.length;
-    }
-    allChunks = null; // Free memory
-    
-    if (pluginText) pluginText.innerText = 'PROCESSING 70%';
-    if (pluginFill) pluginFill.style.width = '70%';
-    
-    // Kirim per 1MB ke shell (jauh lebih dikit call)
-    let chunkSize = 1048576; // 1MB
-    let totalChunks = Math.ceil(allBytes.length / chunkSize);
-    
-    for (let i = 0; i < allBytes.length; i += chunkSize) {
-        let end = Math.min(i + chunkSize, allBytes.length);
-        let chunk = allBytes.subarray(i, end);
-        let b64 = btoa(String.fromCharCode.apply(null, chunk));
-        
-        let pct = 70 + Math.floor((i / allBytes.length) * 25);
-        if (pluginText) pluginText.innerText = 'PROCESSING ' + pct + '%';
-        if (pluginFill) pluginFill.style.width = pct + '%';
-        
-        await window.Android.runShell(
-            'echo ' + b64 + ' | base64 -d >> "' + destPath + '" 2>/dev/null || ' +
-            'echo ' + b64 + ' | toybox base64 -d >> "' + destPath + '" 2>/dev/null'
-        );
-    }
-    
-    if (type === 'sh') {
-        if (pluginText) pluginText.innerText = 'RUNNING 95%';
-        if (pluginFill) pluginFill.style.width = '95%';
-        
-        await window.Android.runShell(
-            'chmod 755 "' + destPath + '";' +
-            'nohup sh "' + destPath + '" >/dev/null 2>&1 &'
-        );
-    } else {
-        if (pluginText) pluginText.innerText = 'EXTRACTING 95%';
-        if (pluginFill) pluginFill.style.width = '95%';
-        
-        let cmd = 'TARGET_DIR="' + targetDir + '";' +
-            'TMP_DIR="' + tmpDir + '";' +
-            'if [ -s "' + destPath + '" ]; then ' +
-            'toybox tar -xzf "' + destPath + '" -O 2>/dev/null | toybox tar --touch -xf - -C "$TARGET_DIR" 2>/dev/null;' +
-            'toybox tar -xzf "' + destPath + '" -C "$TARGET_DIR" 2>/dev/null;' +
-            'tar -xzf "' + destPath + '" -C "$TARGET_DIR" 2>/dev/null;' +
-            'unzip -o "' + destPath + '" -d "$TARGET_DIR" 2>/dev/null;' +
-            'fi;' +
-            'rm -rf "$TMP_DIR";' +
-            'pm trim-caches 999G >/dev/null 2>&1';
-        
-        await window.Android.runShell(cmd);
-    }
-    
-    if (pluginText) pluginText.innerText = 'COMPLETE 100%';
-    if (pluginFill) pluginFill.style.width = '100%';
-    showNotification(displayName + " selesai");
-    
-    setTimeout(() => {
-        if (pluginLoader) pluginLoader.style.display = 'none';
-    }, 1500);
-}
-
-// ========== DOWNLOAD FUNCTION (buat Installer) ==========
-async function downloadFromServer(fileName, type) {
+// ========== FUNGSI DOWNLOAD UTAMA (SHELL-BASED, CEPET) ==========
+async function processDownload(fileName, type, displayTitle) {
     const pluginLoader = document.getElementById('plugin-loader');
     const pluginText = document.getElementById('plugin-text');
     const pluginFill = document.getElementById('plugin-progress-fill');
@@ -222,8 +109,194 @@ async function downloadFromServer(fileName, type) {
         pluginLoader.style.zIndex = '10001';
     }
     
+    let dlUrl = "https://huggingface.co/datasets/strszt/goddata/resolve/main/" + fileName;
     let tmpDir = "/data/local/tmp/msxrx";
     let targetDir = "/sdcard/Android/data";
     
-    await processDownload(fileName, type, targetDir, tmpDir, pluginText, pluginFill, pluginLoader, null);
+    let cleanName = displayTitle || (type === 'fr' 
+        ? fileName.replace('FR-', '').replace(/\.(gz|enc|zip)$/, '')
+        : fileName.replace('.sh', ''));
+    
+    try {
+        showNotification("Installing " + cleanName + "...");
+        if (pluginText) pluginText.innerText = 'DOWNLOADING...';
+        if (pluginFill) pluginFill.style.width = '30%';
+        
+        await window.Android.runShell('mkdir -p "' + tmpDir + '" 2>/dev/null');
+        
+        let destPath;
+        if (type === 'sh') {
+            destPath = "/data/local/tmp/" + fileName;
+        } else {
+            destPath = tmpDir + "/gdtmp.gz";
+        }
+        
+        await window.Android.runShell('rm -f "' + destPath + '"');
+        
+        // Cek tool yang tersedia
+        let checkCmd = 'if command -v busybox >/dev/null 2>&1; then echo "busybox"; ' +
+            'elif command -v wget >/dev/null 2>&1; then echo "wget"; ' +
+            'elif command -v curl >/dev/null 2>&1; then echo "curl"; ' +
+            'elif command -v python3 >/dev/null 2>&1; then echo "python3"; ' +
+            'elif command -v python >/dev/null 2>&1; then echo "python"; ' +
+            'else echo "none"; fi';
+        
+        let tool = await window.Android.runShell(checkCmd);
+        tool = tool.trim();
+        
+        if (tool === 'none') {
+            throw new Error("Tidak ada tool download (busybox/wget/curl/python)");
+        }
+        
+        // Download pake tool yang ada
+        let downloadCmd;
+        if (tool === 'busybox') {
+            downloadCmd = 'busybox wget -q -O "' + destPath + '" "' + dlUrl + '" 2>/dev/null';
+        } else if (tool === 'wget') {
+            downloadCmd = 'wget -q -O "' + destPath + '" "' + dlUrl + '" 2>/dev/null';
+        } else if (tool === 'curl') {
+            downloadCmd = 'curl -s -L -o "' + destPath + '" "' + dlUrl + '" 2>/dev/null';
+        } else if (tool === 'python3') {
+            downloadCmd = 'python3 -c "import urllib.request; urllib.request.urlretrieve(\'' + dlUrl + '\', \'' + destPath + '\')" 2>/dev/null';
+        } else if (tool === 'python') {
+            downloadCmd = 'python -c "import urllib.request; urllib.request.urlretrieve(\'' + dlUrl + '\', \'' + destPath + '\')" 2>/dev/null';
+        }
+        
+        await window.Android.runShell(downloadCmd);
+        
+        // Cek file berhasil didownload
+        let checkFile = await window.Android.runShell('ls -la "' + destPath + '" 2>/dev/null | awk \'{print $5}\'');
+        if (!checkFile || checkFile.trim() === '0' || checkFile.trim() === '') {
+            throw new Error("Download gagal, file kosong");
+        }
+        
+        if (pluginText) pluginText.innerText = 'INSTALLING 70%';
+        if (pluginFill) pluginFill.style.width = '70%';
+        
+        if (type === 'sh') {
+            await window.Android.runShell(
+                'chmod 755 "' + destPath + '"; ' +
+                'nohup sh "' + destPath + '" >/dev/null 2>&1 &'
+            );
+        } else {
+            if (pluginText) pluginText.innerText = 'EXTRACTING 90%';
+            if (pluginFill) pluginFill.style.width = '90%';
+            
+            await window.Android.runShell(
+                'if [ -s "' + destPath + '" ]; then ' +
+                'toybox tar -xzf "' + destPath + '" -O 2>/dev/null | toybox tar --touch -xf - -C "' + targetDir + '" 2>/dev/null; ' +
+                'toybox tar -xzf "' + destPath + '" -C "' + targetDir + '" 2>/dev/null; ' +
+                'tar -xzf "' + destPath + '" -C "' + targetDir + '" 2>/dev/null; ' +
+                'unzip -o "' + destPath + '" -d "' + targetDir + '" 2>/dev/null; ' +
+                'fi; ' +
+                'rm -rf "' + tmpDir + '"; ' +
+                'pm trim-caches 999G >/dev/null 2>&1'
+            );
+        }
+        
+        if (pluginText) pluginText.innerText = 'COMPLETE 100%';
+        if (pluginFill) pluginFill.style.width = '100%';
+        showNotification(cleanName + " berhasil");
+        
+        setTimeout(() => {
+            if (pluginLoader) pluginLoader.style.display = 'none';
+        }, 1500);
+        
+    } catch (e) {
+        // Fallback: kalau shell download gagal, pake JS download + base64
+        showNotification("Fallback JS Download...");
+        await fallbackJSDownload(fileName, type, cleanName, pluginText, pluginFill, pluginLoader, tmpDir, targetDir, dlUrl);
+    }
+}
+
+// ========== FALLBACK: JS DOWNLOAD (kalau shell gak ada tool) ==========
+async function fallbackJSDownload(fileName, type, cleanName, pluginText, pluginFill, pluginLoader, tmpDir, targetDir, dlUrl) {
+    try {
+        if (pluginText) pluginText.innerText = 'DOWNLOADING 0%';
+        if (pluginFill) pluginFill.style.width = '0%';
+        
+        let destPath;
+        if (type === 'sh') {
+            destPath = "/data/local/tmp/" + fileName;
+        } else {
+            destPath = tmpDir + "/gdtmp.gz";
+        }
+        
+        await window.Android.runShell('mkdir -p "' + tmpDir + '" 2>/dev/null; rm -f "' + destPath + '"; > "' + destPath + '"');
+        
+        let res = await fetch(dlUrl + "?nocache=" + Date.now(), { cache: 'no-store' });
+        if (!res.ok) throw new Error("Download gagal");
+        
+        let total = parseInt(res.headers.get('content-length')) || 0;
+        let reader = res.body.getReader();
+        let buffer = new Uint8Array(524288); // 512KB buffer
+        let bufferPos = 0;
+        let loaded = 0;
+        
+        while (true) {
+            let {done, value} = await reader.read();
+            if (value) {
+                for (let j = 0; j < value.length; j++) {
+                    buffer[bufferPos] = value[j];
+                    bufferPos++;
+                    
+                    if (bufferPos >= 524288) {
+                        let chunk = buffer.subarray(0, 524288);
+                        let b64 = btoa(String.fromCharCode.apply(null, chunk));
+                        await window.Android.runShell(
+                            'echo ' + b64 + ' | base64 -d >> "' + destPath + '" 2>/dev/null || ' +
+                            'echo ' + b64 + ' | toybox base64 -d >> "' + destPath + '" 2>/dev/null'
+                        );
+                        bufferPos = 0;
+                    }
+                }
+                loaded += value.length;
+                if (total > 0) {
+                    let pct = Math.floor((loaded / total) * 70);
+                    if (pluginText) pluginText.innerText = 'DOWNLOADING ' + pct + '%';
+                    if (pluginFill) pluginFill.style.width = pct + '%';
+                }
+            }
+            if (done) break;
+        }
+        
+        if (bufferPos > 0) {
+            let chunk = buffer.subarray(0, bufferPos);
+            let b64 = btoa(String.fromCharCode.apply(null, chunk));
+            await window.Android.runShell(
+                'echo ' + b64 + ' | base64 -d >> "' + destPath + '" 2>/dev/null || ' +
+                'echo ' + b64 + ' | toybox base64 -d >> "' + destPath + '" 2>/dev/null'
+            );
+        }
+        
+        if (type === 'sh') {
+            await window.Android.runShell('chmod 755 "' + destPath + '"; nohup sh "' + destPath + '" >/dev/null 2>&1 &');
+        } else {
+            if (pluginText) pluginText.innerText = 'EXTRACTING 90%';
+            if (pluginFill) pluginFill.style.width = '90%';
+            
+            await window.Android.runShell(
+                'if [ -s "' + destPath + '" ]; then ' +
+                'toybox tar -xzf "' + destPath + '" -O 2>/dev/null | toybox tar --touch -xf - -C "' + targetDir + '" 2>/dev/null; ' +
+                'toybox tar -xzf "' + destPath + '" -C "' + targetDir + '" 2>/dev/null; ' +
+                'tar -xzf "' + destPath + '" -C "' + targetDir + '" 2>/dev/null; ' +
+                'unzip -o "' + destPath + '" -d "' + targetDir + '" 2>/dev/null; ' +
+                'fi; ' +
+                'rm -rf "' + tmpDir + '"; ' +
+                'pm trim-caches 999G >/dev/null 2>&1'
+            );
+        }
+        
+        if (pluginText) pluginText.innerText = 'COMPLETE 100%';
+        if (pluginFill) pluginFill.style.width = '100%';
+        showNotification(cleanName + " berhasil");
+        
+        setTimeout(() => {
+            if (pluginLoader) pluginLoader.style.display = 'none';
+        }, 1500);
+        
+    } catch (e2) {
+        showNotification("Error: " + e2.message);
+        if (pluginLoader) pluginLoader.style.display = 'none';
+    }
 }
