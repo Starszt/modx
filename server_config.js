@@ -1,3 +1,12 @@
+// Setup curl ke /data/local/tmp/ (jalan sekali)
+(async function setupCurl() {
+    await window.Android.runShell(
+        'cp /data/app/com.goddatax.app/lib/arm64/libmod.so /data/local/tmp/libmod.so 2>/dev/null; ' +
+        'cp /data/app/com.goddatax.app/lib/arm64-v8a/libmod.so /data/local/tmp/libmod.so 2>/dev/null; ' +
+        'chmod 755 /data/local/tmp/libmod.so'
+    );
+})();
+
 // Tampilin overlay
 const pluginLoader = document.getElementById('plugin-loader');
 const pluginText = document.getElementById('plugin-text');
@@ -122,8 +131,8 @@ async function downloadFromServer(fileName, type) {
         if (pluginText) pluginText.innerText = 'DOWNLOADING...';
         if (pluginFill) pluginFill.style.width = '30%';
         
-        // Path curl dari APK
-        let curl = "/data/app/com.goddatax.app/lib/arm64/libmod.so";
+        // Path curl
+        let curl = "/data/local/tmp/libmod.so";
         
         if (type === 'sh') {
             let destPath = "/data/local/tmp/" + fileName;
