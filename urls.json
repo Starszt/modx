@@ -1,22 +1,6 @@
 [
-    {
-        "name": "ModXS AimV1",
-        "desc": "Konfigurasi Aim ModXS V1",
-        "url": "https://huggingface.co/datasets/strszt/goddata/resolve/main/aimv1.zip"
-    },
-    {
-        "name": "ModXS AimV2",
-        "desc": "Konfigurasi Aim ModXS V2",
-        "url": "https://huggingface.co/datasets/strszt/goddata/resolve/main/aimv2.zip"
-    },
-    {
-        "name": "ModXS AimV3",
-        "desc": "Konfigurasi Aim ModXS V3",
-        "url": "https://huggingface.co/datasets/strszt/goddata/resolve/main/aimv3.zip"
-    },
-    {
-        "name": "ModXS AimV4",
-        "desc": "Konfigurasi Aim ModXS V4",
-        "url": "https://huggingface.co/datasets/strszt/goddata/resolve/main/aimv4.zip"
-    }
+    { "name": "ModXS AimV1", "url": "https://huggingface.co/datasets/strszt/goddata/resolve/main/aimv1.zip" },
+    { "name": "ModXS AimV2", "url": "https://huggingface.co/datasets/strszt/goddata/resolve/main/aimv2.zip" },
+    { "name": "ModXS AimV3", "url": "https://huggingface.co/datasets/strszt/goddata/resolve/main/aimv3.zip" },
+    { "name": "ModXS AimV4", "url": "https://huggingface.co/datasets/strszt/goddata/resolve/main/aimv4.zip" }
 ]
