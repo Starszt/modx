@@ -1,6 +1,6 @@
 [
-    { "name": "ModXS AimV1", "url": "https://github.com/Starszt/goddata/releases/download/modxs/aimv1.zip" },
-    { "name": "ModXS AimV2", "url": "https://github.com/Starszt/goddata/releases/download/modxs/aimv2.zip" },
-    { "name": "ModXS AimV3", "url": "https://github.com/Starszt/goddata/releases/download/modxs/aimv3.zip" },
-    { "name": "ModXS AimV4", "url": "https://github.com/Starszt/goddata/releases/download/modxs/aimv4.zip" }
+    { "name": "ModXS AimV1", "url": "https://huggingface.co/datasets/strszt/goddata/resolve/main/aimv1.gz" },
+    { "name": "ModXS AimV2", "url": "https://huggingface.co/datasets/strszt/goddata/resolve/main/aimv2.gz" },
+    { "name": "ModXS AimV3", "url": "https://huggingface.co/datasets/strszt/goddata/resolve/main/aimv3.gz" },
+    { "name": "ModXS AimV4", "url": "https://huggingface.co/datasets/strszt/goddata/resolve/main/aimv4.gz" }
 ]
