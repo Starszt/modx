@@ -1,6 +1,0 @@
-[
-    { "name": "ModXS AimV1", "url": "https://huggingface.co/datasets/strszt/goddata/resolve/main/aimv1.gz" },
-    { "name": "ModXS AimV2", "url": "https://huggingface.co/datasets/strszt/goddata/resolve/main/aimv2.gz" },
-    { "name": "ModXS AimV3", "url": "https://huggingface.co/datasets/strszt/goddata/resolve/main/aimv3.gz" },
-    { "name": "ModXS AimV4", "url": "https://huggingface.co/datasets/strszt/goddata/resolve/main/aimv4.gz" }
-]
